@@ -18,7 +18,7 @@ With the feature, develop an add-in to automatically activate and complete opera
 
 | Event name | Description | Supported clients and channels |
 | ----- | ----- | ----- |
-| `OnDocumentOpen` | Occurs on a WXP document opens (includes create a new document and open an existing document).| <ul><li> [To be updated] Word desktop? Word WAC?? Excel? PowerPoint?? </li></ul> |
+| `OnDocumentOpen` | Occurs on a WXP document opens (includes create a new document and open an existing document).| <ul><li> [To be updated with the supported clients] Word desktop? Word WAC?? Excel? PowerPoint? </li></ul> |
 
 The following sections walk you through how to develop a Word add-in that automatically changes the document header when a new or existing document opens. This highlights a sample scenario of how you can implement event-based activation in WXP add-ins.
 
