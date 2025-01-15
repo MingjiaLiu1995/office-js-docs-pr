@@ -24,29 +24,231 @@ The following sections walk you through how to develop a Word add-in that automa
 
 ## Set up your environment
 
-To run the feature, you must have a supported version of Word and a Microsoft 365 subscription. Then, create a Word add-in project.
+To run the feature, you must have a supported version of Word and a Microsoft 365 subscription. Then, create a Word add-in project. You can create an add-in with the [Yeoman generator for Office Add-ins](../develop/yeoman-generator-overview.md) and try to create an Office Add-in Task Pane project or other. (Now the feature needs you to create an add-in with task pane or context menu)
 
 ## Configure the manifest
 
-[Instruction and code samples]
+> [!NOTE]
+> Now only Add-in only manifest supported.
+
+# [Add-in only manifest](#tab/xmlmanifest)
+
+To enable an event-based add-in in WXP, you must configure the following elements in the `VersionOverridesV1_0` node of the manifest.
+
+- In the [Runtimes](/javascript/api/manifest/runtimes) element, override the using runtime with a javascript type and reference a javascript file containing the function you want to execute.
+- Set the `xsi:type` of the [ExtensionPoint](/javascript/api/manifest/extensionpoint) element to [LaunchEvent](/javascript/api/manifest/extensionpoint#launchevent). This enables the event-based activation feature in your WXP add-in.
+- In the [LaunchEvent](/javascript/api/manifest/launchevent) element, set the `Type` to `OnDocumentOpen` and specify the JavaScript function name of the event handler in the `FunctionName` attribute.
+
+1. In your code editor, open the quick start project you created.
+1. Open the **manifest.xml** file located at the root of your project.
+1. Select the entire **\<VersionOverrides\>** node (including the open and close tags) and replace it with the following XML. (Word version)
+
+```xml
+<VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Document">
+        <Runtimes>
+          <Runtime resid="Taskpane.Url" lifetime="long" />
+          <Runtime resid="WebViewRuntime.Url">
+            <Override type="javascript" resid="JsRuntimeWord.Url"/>
+          </Runtime>
+        </Runtimes>
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title"/>
+            <Description resid="GetStarted.Description"/>
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl"/>
+          </GetStarted>
+          <FunctionFile resid="Commands.Url"/>
+          <ExtensionPoint xsi:type="LaunchEvent">
+            <LaunchEvents>
+              <LaunchEvent Type="OnDocumentOpen" FunctionName="changeHeader"></LaunchEvent>
+            </LaunchEvents>
+            <SourceLocation resid="WebViewRuntime.Url"/>
+          </ExtensionPoint>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="CommandsGroup">
+                <Label resid="CommandsGroup.Label"/>
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16"/>
+                  <bt:Image size="32" resid="Icon.32x32"/>
+                  <bt:Image size="80" resid="Icon.80x80"/>
+                </Icon>
+                <Control xsi:type="Button" id="TaskpaneButton">
+                  <Label resid="TaskpaneButton.Label"/>
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label"/>
+                    <Description resid="TaskpaneButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>ButtonId1</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3000/assets/icon-16.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3000/assets/icon-32.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3000/assets/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://go.microsoft.com/fwlink/?LinkId=276812"/>
+        <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/commands.html"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/taskpane.html"/>
+        <bt:Url id="WebViewRuntime.Url" DefaultValue="https://localhost:3000/commands.html"/>
+        <bt:Url id="JsRuntimeWord.Url" DefaultValue="https://raw.githubusercontent.com/yilin4/AddinForDLP/refs/heads/main/src/commands/autoruncommandsWord.js"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="Get started with your sample add-in!"/>
+        <bt:String id="CommandsGroup.Label" DefaultValue="Autorun For DLP"/>
+        <bt:String id="TaskpaneButton.Label" DefaultValue="DLP"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="Your sample add-in loaded successfully. Go to the HOME tab and click the 'Show Task Pane' button to get started."/>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to Show a Taskpane"/>
+      </bt:LongStrings>
+    </Resources>
+</VersionOverrides>
+```
+
+1. Save your changes.
 
 ## Implement the event handler
 
-[Instruction and code samples]
+To enable your add-in to complete tasks when the `OnDocumentOpen` event occurs, you must implement a JavaScript event handler. In this section, you'll create the `changeHeader` function that adds header of public or high confidential to a document when open it according to whether it's a new document or an old one that already has content.
+
+1. From the same quick start project, navigate to the **./src/commands** directory.
+1. In the **./src/commands** folder, create a new file named **autoruncommandsWord.js**.
+1. Open the **autoruncommandsWord.js** file you created and add the following JavaScript code.
+
+```javascript
+/*
+* Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
+* See LICENSE in the project root for license information.
+*/
+/* global global, Office, self, window */
+
+Office.onReady(() => {
+  // If needed, Office.js is ready to be called
+});
+
+async function changeHeader(event) {
+  Word.run(async (context) => {
+    const body = context.document.body;
+    body.load("text");
+    await context.sync();
+    if (body.text.length == 0)
+    {
+      const header = context.document.sections.getFirst().getHeader(Word.HeaderFooterType.primary);
+      const firstPageHeader = context.document.sections.getFirst().getHeader(Word.HeaderFooterType.firstPage);
+      header.clear();
+      firstPageHeader.clear();
+      header.insertParagraph("Public - The data is for the public and shareable externally", "Start");
+      firstPageHeader.insertParagraph("Public - The data is for the public and shareable externally", "Start");
+      header.font.color = "#07641d";
+      firstPageHeader.font.color = "#07641d";
+
+      await context.sync();
+    }
+    else
+    {
+      const header = context.document.sections.getFirst().getHeader(Word.HeaderFooterType.primary);
+      const firstPageHeader = context.document.sections.getFirst().getHeader(Word.HeaderFooterType.firstPage);
+      header.clear();
+      firstPageHeader.clear();
+      header.insertParagraph("High Confidential - The data must be secret or in some way highly critical", "Start");
+      firstPageHeader.insertParagraph("High Confidential - The data must be secret or in some way highly critical", "Start");
+      header.font.color = "#f8334d";
+      firstPageHeader.font.color = "#f8334d";
+      await context.sync();
+    }
+  });
+
+  // Calling event.completed is required. event.completed lets the platform know that processing has completed.
+  event.completed();
+}
+
+async function paragraphChanged() {
+  await Word.run(async (context) => {
+    const results = context.document.body.search("110");
+    results.load("length");
+    await context.sync();
+    if (results.items.length == 0) {
+      const header = context.document.sections.getFirst().getHeader(Word.HeaderFooterType.primary);
+      header.clear();
+      header.insertParagraph("Public - The data is for the public and shareable externally", "Start");
+      const font = header.font;
+      font.color = "#07641d";
+
+      await context.sync();
+    }
+    else {
+      const header = context.document.sections.getFirst().getHeader(Word.HeaderFooterType.primary);
+      header.clear();
+      header.insertParagraph("High Confidential - The data must be secret or in some way highly critical", "Start");
+      const font = header.font;
+      font.color = "#f8334d";
+      await context.sync();
+    }
+  });
+}
+async function registerOnParagraphChanged(event) {
+  Word.run(async (context) => {
+    let eventContext = context.document.onParagraphChanged.add(paragraphChanged);
+    await context.sync();
+  });
+  // Calling event.completed is required. event.completed lets the platform know that processing has completed.
+  event.completed();
+}
+
+function getGlobal() {
+  return typeof self !== "undefined"
+    ? self
+    : typeof window !== "undefined"
+    ? window
+    : typeof global !== "undefined"
+    ? global
+    : undefined;
+}
+
+const g = getGlobal();
+
+// The add-in command functions need to be available in global scope
+
+Office.actions.associate("changeHeader", changeHeader);
+```
+
+1. Save your changes. In the manifest, replace the following content to your own url.
+```xml
+<bt:Url id="JsRuntimeWord.Url" DefaultValue="https://raw.githubusercontent.com/yilin4/AddinForDLP/refs/heads/main/src/commands/autoruncommandsWord.js"/>
+```
 
 ## Add a reference to the event-handling JavaScript file
 
-[Instruction and code samples]
+Ensure that the **autoruncommandsWord.js** file must be a javascript file not a typescript file, and the online url is recommended now.
 
 ## Test and validate your add-in
 
-[Instruction and code samples]
+1. Sideload your add-in in Word on Windows.
+1. Open Word on you Windows and you will see the effect the document has been added headers.
 
 ## Behavior and limitations
 
-[Instruction and code samples]
-
-Currently, the feature is only supported in add-in only manifest, please contact product team if you need unified app manifest.
+As you develop an event-based add-in for WXP, be mindful of the following feature behaviors and limitations.
+- Currently, the feature is only supported in add-in only manifest, please contact product team if you need unified app manifest. 
+- If installing several add-ins with launch events, only one's launch event can be executed.
 
 [More to be added]
 
